@@ -1,0 +1,49 @@
+{
+  "title": "HA Proxy",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a proxied web service",
+        "description": "Enter the details for the internal web service you want to proxy through Home Assistant. The service only needs to be reachable by HA — not by your browser.",
+        "data": {
+          "name": "Display name",
+          "server": "Internal server URL",
+          "panel_icon": "Sidebar icon (MDI)",
+          "ssl_verification": "Verify SSL certificate",
+          "send_ingress_path": "Send X-Ingress-Path header"
+        },
+        "data_description": {
+          "name": "Shown in the sidebar. Also used to generate the URL path (e.g. 'Frigate NVR' → /frigate-nvr).",
+          "server": "e.g. http://myservice.internal:8080 — reachable from HA, not from your browser.",
+          "send_ingress_path": "Enable for apps that support HA Supervisor's X-Ingress-Path header (e.g. Frigate). Tells the app its base URL so asset and API paths resolve correctly."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the server. Check the URL and ensure Home Assistant can connect to it.",
+      "invalid_url": "The server URL is not valid.",
+      "unknown": "Unexpected error — check the Home Assistant logs."
+    },
+    "abort": {
+      "already_configured": "A proxy with that name is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Edit proxy settings",
+        "data": {
+          "server": "Internal server URL",
+          "panel_icon": "Sidebar icon (MDI)",
+          "ssl_verification": "Verify SSL certificate",
+          "send_ingress_path": "Send X-Ingress-Path header"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the server. Check the URL and ensure Home Assistant can connect to it.",
+      "invalid_url": "The server URL is not valid.",
+      "unknown": "Unexpected error — check the Home Assistant logs."
+    }
+  }
+}

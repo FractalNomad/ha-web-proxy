@@ -1,0 +1,12 @@
+{
+  "domain": "ha_proxy",
+  "name": "HA Proxy",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": ["http"],
+  "documentation": "https://github.com/your-repo/ha_proxy",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/your-repo/ha_proxy/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

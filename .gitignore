@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.pyc
+.venv/
+venv/
+.env
+.vscode/
+.idea/
+.DS_Store
+*.db
+*.db-shm
+*.db-wal
+home-assistant.log*
+.pytest_cache/
+htmlcov/
+.coverage
