@@ -114,7 +114,6 @@ def _register_panel(hass: HomeAssistant, entry: ConfigEntry, slug: str) -> None:
             "slug": slug,
         },
         require_admin=False,
-        config_panel_domain=DOMAIN,
         update=True,
     )
     _LOGGER.debug("Registered HA Proxy panel: slug=%s title=%s", slug, title)
