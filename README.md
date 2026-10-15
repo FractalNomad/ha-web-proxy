@@ -1,5 +1,8 @@
 # HA Proxy
 
+[![hacs](https://img.shields.io/badge/HACS-custom-orange.svg?style=flat-square)](https://hacs.xyz)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
+
 A Home Assistant custom integration that reverse-proxies any internal web
 service through Home Assistant, gating access behind HA authentication and
 displaying it as a first-class sidebar panel.
@@ -24,21 +27,20 @@ session-cookie ingress mechanism that HA Supervisor uses for its add-ons.
 
 ## Installation
 
-### HACS (recommended)
+### Via HACS (recommended)
 
-1. In HA: **Settings → Add-ons & Integrations (HACS) → ⋮ → Custom repositories** → add `FractalNomad/ha-web-proxy` → **Add**.
-   (Or scan the my-link below.)
-2. Open **HA Proxy** in the HACS store → **Download** (pick a release or the `main` branch).
-3. Restart Home Assistant (HACS will prompt).
-4. Go to **Settings → Devices & Services → Add Integration → HA Proxy** and configure your first proxy.
+HA Proxy is not in the default HACS store, so add it as a **custom repository** first:
 
-<https://my.home-assistant.io/?redirect=hacs%2Frepository%2FFractalNomad%2Fha-web-proxy>
+1. Open **HACS** (sidebar), then the **⋮ (three-dots) menu → Custom repositories**.
+2. Add the repository URL `https://github.com/FractalNomad/ha-web-proxy` → **Add**.
+   (Or open the my-link below, which does step 1 for you.)
+3. Find **HA Proxy** in the HACS store → **Download** → pick a release (e.g. `1.0.0`) or the `main` branch.
+4. **Restart Home Assistant** when prompted.
+5. Add the integration: **Settings → Devices & Services → Add Integration → HA Proxy**, and configure your first proxy.
 
-Afterwards, HACS tracks new releases automatically — just hit **Update** in the HACS store when available.
+[![Open your Home Assistant instance and add this repository to the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=FractalNomad&repository=ha-web-proxy&category=integration)
 
-> Updating the integration: HACS replaces the files and restarts HA. The panel JS
-> self-heals: already-open proxy panels detect the newer panel-JS revision and
-> reload themselves once, so no browser cache clearing is needed.
+Afterwards, HACS tracks new releases automatically — hit **Update** in the HACS store when one is available. The panel JS self-heals across updates: already-open proxy panels detect the newer panel revision and reload themselves once, so no browser cache clearing is needed.
 
 ### Manual
 
