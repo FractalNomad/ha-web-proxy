@@ -1,4 +1,4 @@
-# HA Proxy
+# HA Web Proxy
 
 [![hacs](https://img.shields.io/badge/HACS-custom-orange.svg?style=flat-square)](https://hacs.xyz)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
@@ -10,7 +10,7 @@ displaying it as a first-class sidebar panel.
 ## Why this exists
 
 Some web services (Frigate NVR, code-server, Grafana, etc.) are only reachable
-on internal networks — not from browsers on the open internet. HA Proxy lets
+on internal networks — not from browsers on the open internet. HA Web Proxy lets
 you access them through HA without ever exposing them directly, using the same
 session-cookie ingress mechanism that HA Supervisor uses for its add-ons.
 
@@ -29,14 +29,14 @@ session-cookie ingress mechanism that HA Supervisor uses for its add-ons.
 
 ### Via HACS (recommended)
 
-HA Proxy is not in the default HACS store, so add it as a **custom repository** first:
+HA Web Proxy is not in the default HACS store, so add it as a **custom repository** first:
 
 1. Open **HACS** (sidebar), then the **⋮ (three-dots) menu → Custom repositories**.
 2. Add the repository URL `https://github.com/FractalNomad/ha-web-proxy` → **Add**.
    (Or open the my-link below, which does step 1 for you.)
-3. Find **HA Proxy** in the HACS store → **Download** → pick a release (e.g. `1.0.0`) or the `main` branch.
+3. Find **HA Web Proxy** in the HACS store → **Download** → pick a release (e.g. `1.0.0`) or the `main` branch.
 4. **Restart Home Assistant** when prompted.
-5. Add the integration: **Settings → Devices & Services → Add Integration → HA Proxy**, and configure your first proxy.
+5. Add the integration: **Settings → Devices & Services → Add Integration → HA Web Proxy**, and configure your first proxy.
 
 [![Open your Home Assistant instance and add this repository to the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=FractalNomad&repository=ha-web-proxy&category=integration)
 
@@ -56,7 +56,7 @@ ConfigMap before HA starts.
 
 After installation:
 
-1. Go to **Settings → Devices & Services → Add Integration → HA Proxy**.
+1. Go to **Settings → Devices & Services → Add Integration → HA Web Proxy**.
 2. Enter a display name (e.g. "Frigate NVR"), the internal URL
    (e.g. `http://frigate:5000`), and optional icon.
 3. The integration creates a sidebar panel at `/{slug}` (e.g. `/frigate-nvr`).

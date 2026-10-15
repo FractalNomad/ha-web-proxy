@@ -1,6 +1,6 @@
 {
   "domain": "ha_proxy",
-  "name": "HA Proxy",
+  "name": "HA Web Proxy",
   "codeowners": ["@FractalNomad"],
   "config_flow": true,
   "dependencies": ["http"],

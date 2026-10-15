@@ -1,5 +1,5 @@
 {
-  "name": "HA Proxy",
+  "name": "HA Web Proxy",
   "hacs": "2.0.0",
   "homeassistant": "2026.1.0"
 }
