@@ -20,6 +20,11 @@
  * default intrinsic height.)
  */
 
+// Bump when this file changes (must match PANEL_JS_REV in const.py); the panel
+// JS compares its own copy to the rev shipped in the panel config and
+// force-reloads the page once when it is running a stale cached copy.
+const PANEL_JS_REV = 1;
+
 class HAProxyPanel extends HTMLElement {
   constructor() {
     super();
@@ -39,6 +44,17 @@ class HAProxyPanel extends HTMLElement {
   }
 
   connectedCallback() {
+    // Self-heal stale JS: HA serves this file with cache-control:
+    // no-cache, so a re-fetch always gets the current bytes from the server.
+    // If the server-side integration is newer than this copy (e.g. after an
+    // update + HA restart where the browser kept an old copy), reload once so
+    // the fresh file (and this check) runs.
+    const serverRev = Number(this._panel?.config?.js_rev);
+    if (serverRev && serverRev > PANEL_JS_REV) {
+      console.warn(`[ha-proxy] Panel JS rev ${PANEL_JS_REV} is outdated (server ${serverRev}); reloading.`);
+      window.location.reload();
+      return;
+    }
     this._maybeInit();
   }
 

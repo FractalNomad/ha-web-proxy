@@ -36,6 +36,7 @@ from .const import (
     DOMAIN,
     PANEL_ELEMENT_NAME,
     PANEL_JS_FILENAME,
+    PANEL_JS_REV,
     PANEL_STATIC_URL,
 )
 from .proxy import HAProxySessionView, HAProxyView, IngressSessions
@@ -112,6 +113,7 @@ def _register_panel(hass: HomeAssistant, entry: ConfigEntry, slug: str) -> None:
                 "js_url": js_url,
             },
             "slug": slug,
+            "js_rev": PANEL_JS_REV,
         },
         require_admin=False,
         update=True,
