@@ -34,5 +34,9 @@ jobs:
       - name: HACS validation
         uses: hacs/action@main
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # NOTE: the input is 'github_token' (underscore). The action reads
+          # $INPUT_GITHUB_TOKEN; a hyphen ('github-token') is rejected and the
+          # action then validates UNAUTHENTICATED, which cannot resolve the
+          # repo's git tree -> 'brands'/'topics' checks falsely fail.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           category: ${{ github.event.inputs.category || 'integration' }}
