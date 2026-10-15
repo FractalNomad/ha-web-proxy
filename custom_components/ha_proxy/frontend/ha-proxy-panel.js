@@ -18,12 +18,29 @@
  * (With shadow DOM, :host lives inside that flex container, where
  * height:100% resolves to auto and the iframe collapses to its 150px
  * default intrinsic height.)
+ *
+ * Lifecycle: HA's panel resolver DETACHES this element (removes it from the
+ * DOM) when the user navigates to another panel or when the app is suspended
+ * (tab backgrounded >5 min, suspendWhenHidden), and RE-ATTACHES it on
+ * return (panel switch or visibility return).  Re-attach must NOT re-create
+ * the iframe: the iframe holds the proxied app's state (pages, in-app auth,
+ * WebSocket connections) and re-creating it tears that state down.  So
+ * connectedCallback keeps the existing iframe and only re-mints the session
+ * cookie when the server-side in-memory session store no longer knows it
+ * (e.g. HA restarted while the tab was away, which silently invalidates the
+ * cookie) — otherwise a plain page reload would be needed.
  */
 
 // Bump when this file changes (must match PANEL_JS_REV in const.py); the panel
 // JS compares its own copy to the rev shipped in the panel config and
 // force-reloads the page once when it is running a stale cached copy.
-const PANEL_JS_REV = 1;
+const PANEL_JS_REV = 2;
+
+// How often to probe the session while the tab is hidden.  60s balances
+// "notice an HA restart (and its session-store reset) soon" against "don't
+// hammer the proxy".  Each probe is a cheap GET through the proxy that only
+// creates a NEW session when the current one is found invalid.
+const HIDDEN_PROBE_INTERVAL_MS = 60000;
 
 class HAProxyPanel extends HTMLElement {
   constructor() {
@@ -31,6 +48,8 @@ class HAProxyPanel extends HTMLElement {
     this._initialized = false;
     this._hass = null;
     this._panel = null;
+    this._hidden = false;
+    this._hiddenTimer = null;
   }
 
   set hass(hass) {
@@ -44,22 +63,66 @@ class HAProxyPanel extends HTMLElement {
   }
 
   connectedCallback() {
-    // Self-heal stale JS: HA serves this file with cache-control:
-    // no-cache, so a re-fetch always gets the current bytes from the server.
-    // If the server-side integration is newer than this copy (e.g. after an
-    // update + HA restart where the browser kept an old copy), reload once so
-    // the fresh file (and this check) runs.
+    // Self-heal stale JS: HA serves this file with cache-control: no-cache,
+    // so a re-fetch always gets the current bytes from the server. If the
+    // server-side integration is newer than this copy (e.g. after an
+    // update + HA restart where the browser kept an old copy), reload once
+    // so the fresh file (and this check) runs.
+    // Re-attach (panel switch, or return from the 5-min suspend):
+    // keep the iframe and its app state; only re-mint the session if the
+    // server forgot it (HA restarted while we were away).
     const serverRev = Number(this._panel?.config?.js_rev);
     if (serverRev && serverRev > PANEL_JS_REV) {
-      console.warn(`[ha-proxy] Panel JS rev ${PANEL_JS_REV} is outdated (server ${serverRev}); reloading.`);
+      console.warn(
+        `[ha-proxy] Panel JS rev ${PANEL_JS_REV} is outdated (server ${serverRev}); reloading.`
+      );
       window.location.reload();
       return;
     }
+    if (this._initialized) {
+      this._stopHiddenProbe();
+      this._hidden = document.hidden;
+      if (!document.hidden) {
+        // Visible now (returned to this panel): refresh immediately.
+        this._refreshSessionIfNeeded();
+      }
+      return;
+    }
+    this._hidden = document.hidden;
     this._maybeInit();
+  }
+
+  disconnectedCallback() {
+    // ha-panel-custom removes this element from the DOM when the panel is
+    // switched away from or the app is suspended (tab backgrounded >5 min),
+    // and re-appends it on return (connectedCallback above).  Keep
+    // _initialized so that reconnect is cheap — no iframe teardown.
+    //
+    // If we are being detached while the tab is hidden, the app is
+    // suspending: the element will NOT be re-connected until the user comes
+    // back, so start a periodic probe — if HA restarts while we're away, the
+    // in-memory session store is cleared and our cookie is silently
+    // invalidated; probing lets us re-mint before the user returns instead
+    // of them hitting 401s.
+    if (document.hidden && this._initialized) {
+      this._hidden = true;
+      this._startHiddenProbe();
+    } else {
+      // Panel switched away while still visible: the next connect (user
+      // coming back) handles the refresh, so no timer needed.
+      this._stopHiddenProbe();
+    }
   }
 
   get _slug() {
     return this._panel?.config?.slug ?? "";
+  }
+
+  _maybeInit() {
+    if (!this._initialized && this._hass && this._panel) {
+      this._initialized = true;
+      this._initialize();
+    }
   }
 
   async _initialize() {
@@ -67,9 +130,76 @@ class HAProxyPanel extends HTMLElement {
     try {
       await this._createSession();
       this._renderIframe();
+      // If we were backgrounded at first init, start probing so a session
+      // reset while hidden is caught without the user's interaction.
+      if (document.hidden) {
+        this._startHiddenProbe();
+      }
     } catch (err) {
       console.error(`[ha-proxy-panel/${this._slug}] Session creation failed:`, err);
       this._renderError(err.message || String(err));
+    }
+  }
+
+  // Probe whether the current session cookie is still valid on the server.
+  // A GET against the proxy root: the server validates the cookie and
+  // answers 401 when the in-memory session store no longer knows it (HA
+  // restarted) or when there is no cookie at all.
+  async _sessionValid() {
+    const slug = this._slug;
+    if (!slug) return false;
+    try {
+      const resp = await fetch(`/api/ha_proxy/${slug}/`, {
+        method: "GET",
+        credentials: "same-origin",
+      });
+      return resp.status !== 401 && resp.status !== 403;
+    } catch {
+      // Network error / HA unreachable: don't treat as "invalid" —
+      // re-minting would fail too and we'd just churn. Keep the cookie.
+      return true;
+    }
+  }
+
+  // If the server no longer knows our session cookie (e.g. HA restarted
+  // while the tab was hidden), mint a fresh one.  The cookie is scoped to
+  // /api/ha_proxy/{slug}, so re-setting it means the iframe's next request
+  // carries the new token — the proxied app keeps its state; only auth
+  // changes.  No iframe reload needed.
+  async _refreshSessionIfNeeded() {
+    const slug = this._slug;
+    if (!slug || !this._hass) return;
+    if (await this._sessionValid()) return;
+    console.info(`[ha-proxy/${slug}] Session expired on server — re-minting.`);
+    try {
+      await this._createSession();
+    } catch (err) {
+      // Re-mint failed (e.g. HA still down).  If the iframe is up, leave it
+      // alone (the user can Retry, or the next probe tries again); otherwise
+      // surface the error.
+      console.warn(`[ha-proxy/${slug}] Re-mint failed:`, err);
+      if (this._iframePresent()) return;
+      this._renderError(err.message || String(err));
+    }
+  }
+
+  _iframePresent() {
+    return !!this.querySelector(".ha-proxy-iframe");
+  }
+
+  _startHiddenProbe() {
+    if (this._hiddenTimer) return;
+    this._hiddenTimer = window.setInterval(() => {
+      if (document.hidden && this._initialized) {
+        this._refreshSessionIfNeeded();
+      }
+    }, HIDDEN_PROBE_INTERVAL_MS);
+  }
+
+  _stopHiddenProbe() {
+    if (this._hiddenTimer) {
+      clearInterval(this._hiddenTimer);
+      this._hiddenTimer = null;
     }
   }
 
