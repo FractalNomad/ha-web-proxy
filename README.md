@@ -26,8 +26,19 @@ session-cookie ingress mechanism that HA Supervisor uses for its add-ons.
 
 ### HACS (recommended)
 
-Add this repo as a custom HACS repository (type: Integration), then install
-**HA Proxy**.
+1. In HA: **Settings → Add-ons & Integrations (HACS) → ⋮ → Custom repositories** → add `FractalNomad/ha-web-proxy` → **Add**.
+   (Or scan the my-link below.)
+2. Open **HA Proxy** in the HACS store → **Download** (pick a release or the `main` branch).
+3. Restart Home Assistant (HACS will prompt).
+4. Go to **Settings → Devices & Services → Add Integration → HA Proxy** and configure your first proxy.
+
+<https://my.home-assistant.io/?redirect=hacs%2Frepository%2FFractalNomad%2Fha-web-proxy>
+
+Afterwards, HACS tracks new releases automatically — just hit **Update** in the HACS store when available.
+
+> Updating the integration: HACS replaces the files and restarts HA. The panel JS
+> self-heals: already-open proxy panels detect the newer panel-JS revision and
+> reload themselves once, so no browser cache clearing is needed.
 
 ### Manual
 

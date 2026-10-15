@@ -1,0 +1,38 @@
+name: HACS validation
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  schedule:
+    # HACS data is refreshed periodically; re-validate daily so a
+    # requirement change upstream (or a broken tag) surfaces here.
+    - cron: "0 3 * * *"
+  # Manual trigger: "Run workflow" → pick a category → Run.
+  workflow_dispatch:
+    inputs:
+      category:
+        description: HACS repository category
+        required: true
+        default: integration
+        type: choice
+        options:
+          - integration
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          category: ${{ github.event.inputs.category || 'integration' }}
