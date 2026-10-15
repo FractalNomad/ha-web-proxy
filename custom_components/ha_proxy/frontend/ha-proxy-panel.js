@@ -6,6 +6,18 @@
  *   1. Exchanges a bearer token for a session cookie via
  *      POST /api/ha_proxy_session/{slug}
  *   2. Renders a full-page iframe at /api/ha_proxy/{slug}/
+ *
+ * The iframe is rendered in LIGHT DOM (this element's own tree, no shadow
+ * root) so that the panel container's flex layout sizes it directly.
+ * ha-panel-custom lays its children out with display:flex;
+ * flex-direction:column and (since 2026.8) applies safe-area padding on the
+ * container.  A child with flex:1 + min-height:0 then fills exactly the
+ * remaining space — no 100vh/dvh fallback needed, and safe-area insets are
+ * handled by the container for us.
+ *
+ * (With shadow DOM, :host lives inside that flex container, where
+ * height:100% resolves to auto and the iframe collapses to its 150px
+ * default intrinsic height.)
  */
 
 class HAProxyPanel extends HTMLElement {
@@ -14,7 +26,6 @@ class HAProxyPanel extends HTMLElement {
     this._initialized = false;
     this._hass = null;
     this._panel = null;
-    this.attachShadow({ mode: "open" });
   }
 
   set hass(hass) {
@@ -29,13 +40,6 @@ class HAProxyPanel extends HTMLElement {
 
   connectedCallback() {
     this._maybeInit();
-  }
-
-  _maybeInit() {
-    if (!this._initialized && this._hass && this._panel) {
-      this._initialized = true;
-      this._initialize();
-    }
   }
 
   get _slug() {
@@ -71,61 +75,84 @@ class HAProxyPanel extends HTMLElement {
     }
   }
 
+  // Clear the light-DOM children, then inject our own <style> + content.
+  // (innerHTML on this element is safe: we only ever write our own markup.)
+  _setHtml(html) {
+    this.innerHTML = html;
+  }
+
   _renderLoading() {
-    this.shadowRoot.innerHTML = `
+    this._setHtml(`
       <style>
-        :host { display: flex; align-items: center; justify-content: center;
-                width: 100%; height: 100%;
-                background: var(--primary-background-color, #fff); }
-        .spinner { width: 48px; height: 48px;
-                   border: 5px solid var(--divider-color, #ccc);
-                   border-top-color: var(--primary-color, #03a9f4);
-                   border-radius: 50%;
-                   animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        ha-proxy-panel > * { display: block; width: 100%; }
+        .ha-proxy-spinner {
+          flex: 1; min-height: 0;
+          display: flex; align-items: center; justify-content: center;
+          width: 100%;
+          background: var(--primary-background-color, #fff);
+        }
+        .ha-proxy-spinner .spinner {
+          width: 48px; height: 48px;
+          border: 5px solid var(--divider-color, #ccc);
+          border-top-color: var(--primary-color, #03a9f4);
+          border-radius: 50%;
+          animation: ha-proxy-spin 0.8s linear infinite;
+        }
+        @keyframes ha-proxy-spin { to { transform: rotate(360deg); } }
       </style>
-      <div class="spinner"></div>
-    `;
+      <div class="ha-proxy-spinner"><div class="spinner"></div></div>
+    `);
   }
 
   _renderIframe() {
     const slug = this._slug;
-    this.shadowRoot.innerHTML = `
+    this._setHtml(`
       <style>
-        :host { display: block; width: 100%; height: 100%; overflow: hidden; }
-        iframe { width: 100%; height: 100%; border: none; display: block; }
+        .ha-proxy-iframe {
+          flex: 1; min-height: 0;
+          width: 100%; border: none; display: block;
+        }
       </style>
       <iframe
+        class="ha-proxy-iframe"
         src="/api/ha_proxy/${slug}/"
         allow="autoplay; fullscreen"
       ></iframe>
-    `;
+    `);
   }
 
   _renderError(message) {
     const slug = this._slug;
-    this.shadowRoot.innerHTML = `
+    this._setHtml(`
       <style>
-        :host { display: flex; flex-direction: column; align-items: center;
-                justify-content: center; width: 100%; height: 100%;
-                background: var(--primary-background-color, #fff);
-                font-family: var(--paper-font-body1_-_font-family, sans-serif);
-                color: var(--primary-text-color, #212121);
-                gap: 16px; padding: 24px; box-sizing: border-box; }
-        ha-icon { --mdc-icon-size: 48px; color: var(--error-color, #db4437); }
-        p { margin: 0; text-align: center; max-width: 480px; opacity: 0.8; }
-        button { padding: 8px 20px;
-                 background: var(--primary-color, #03a9f4); color: #fff;
-                 border: none; border-radius: 4px; cursor: pointer;
-                 font-size: 14px; }
-        button:hover { opacity: 0.9; }
+        .ha-proxy-error {
+          flex: 1; min-height: 0;
+          display: flex; flex-direction: column; align-items: center;
+          justify-content: center;
+          width: 100%;
+          background: var(--primary-background-color, #fff);
+          font-family: var(--paper-font-body1_-_font-family, sans-serif);
+          color: var(--primary-text-color, #212121);
+          gap: 16px; padding: 24px; box-sizing: border-box;
+        }
+        .ha-proxy-error ha-icon { --mdc-icon-size: 48px; color: var(--error-color, #db4437); }
+        .ha-proxy-error p { margin: 0; text-align: center; max-width: 480px; opacity: 0.8; }
+        .ha-proxy-error button {
+          padding: 8px 20px;
+          background: var(--primary-color, #03a9f4); color: #fff;
+          border: none; border-radius: 4px; cursor: pointer;
+          font-size: 14px;
+        }
+        .ha-proxy-error button:hover { opacity: 0.9; }
       </style>
-      <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
-      <p><strong>Could not connect to proxy instance '${this._escapeHtml(slug)}'</strong></p>
-      <p>${this._escapeHtml(message)}</p>
-      <button id="retry">Retry</button>
-    `;
-    this.shadowRoot.getElementById("retry").addEventListener("click", () => {
+      <div class="ha-proxy-error">
+        <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+        <p><strong>Could not connect to proxy instance '${this._escapeHtml(slug)}'</strong></p>
+        <p>${this._escapeHtml(message)}</p>
+        <button id="retry">Retry</button>
+      </div>
+    `);
+    this.querySelector("#retry").addEventListener("click", () => {
       this._initialized = false;
       this._initialize();
     });
