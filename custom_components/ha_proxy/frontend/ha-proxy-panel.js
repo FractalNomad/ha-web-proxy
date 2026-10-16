@@ -7,17 +7,14 @@
  *      POST /api/ha_proxy_session/{slug}
  *   2. Renders a full-page iframe at /api/ha_proxy/{slug}/
  *
- * The iframe is rendered in LIGHT DOM (this element's own tree, no shadow
- * root) so that the panel container's flex layout sizes it directly.
- * ha-panel-custom lays its children out with display:flex;
- * flex-direction:column and (since 2026.8) applies safe-area padding on the
- * container.  A child with flex:1 + min-height:0 then fills exactly the
- * remaining space — no 100vh/dvh fallback needed, and safe-area insets are
- * handled by the container for us.
+ * The panel owns its layout: a viewport-height column flex container in
+ * light DOM. The iframe's flex sizing only works when its immediate parent
+ * (this element, NOT ha-panel-custom) is a flex container with a defined
+ * height. HA's wrapper may be a block with auto height.
  *
- * (With shadow DOM, :host lives inside that flex container, where
- * height:100% resolves to auto and the iframe collapses to its 150px
- * default intrinsic height.)
+ * Registration sets handle_safe_area=true. This element applies safe-area
+ * padding inside its border-box height, avoiding double padding by HA.
+ * Horizontal content insets account for safe space absorbed by the sidebar.
  *
  * Lifecycle: HA's panel resolver DETACHES this element (removes it from the
  * DOM) when the user navigates to another panel or when the app is suspended
@@ -34,7 +31,7 @@
 // Bump when this file changes (must match PANEL_JS_REV in const.py); the panel
 // JS compares its own copy to the rev shipped in the panel config and
 // force-reloads the page once when it is running a stale cached copy.
-const PANEL_JS_REV = 2;
+const PANEL_JS_REV = 3;
 
 // How often to probe the session while the tab is hidden.  60s balances
 // "notice an HA restart (and its session-store reset) soon" against "don't
@@ -224,13 +221,34 @@ class HAProxyPanel extends HTMLElement {
   // Clear the light-DOM children, then inject our own <style> + content.
   // (innerHTML on this element is safe: we only ever write our own markup.)
   _setHtml(html) {
-    this.innerHTML = html;
+    this.innerHTML = `
+      <style>
+        ha-proxy-panel {
+          display: flex;
+          flex-direction: column;
+          width: 100%;
+          height: 100vh;
+          height: 100dvh;
+          min-width: 0;
+          min-height: 0;
+          box-sizing: border-box;
+          overflow: hidden;
+          padding-top: var(--safe-area-inset-top, 0px);
+          padding-bottom: var(--safe-area-inset-bottom, 0px);
+          padding-left: var(--safe-area-content-inset-left,
+            var(--safe-area-inset-left, 0px));
+          padding-right: var(--safe-area-content-inset-right,
+            var(--safe-area-inset-right, 0px));
+        }
+        ha-proxy-panel > style { display: none; }
+      </style>
+      ${html}
+    `;
   }
 
   _renderLoading() {
     this._setHtml(`
       <style>
-        ha-proxy-panel > * { display: block; width: 100%; }
         .ha-proxy-spinner {
           flex: 1; min-height: 0;
           display: flex; align-items: center; justify-content: center;
@@ -254,8 +272,8 @@ class HAProxyPanel extends HTMLElement {
     const slug = this._slug;
     this._setHtml(`
       <style>
-        .ha-proxy-iframe {
-          flex: 1; min-height: 0;
+        ha-proxy-panel > .ha-proxy-iframe {
+          flex: 1; min-height: 0; min-width: 0;
           width: 100%; border: none; display: block;
         }
       </style>

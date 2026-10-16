@@ -111,6 +111,8 @@ def _register_panel(hass: HomeAssistant, entry: ConfigEntry, slug: str) -> None:
             "_panel_custom": {
                 "name": PANEL_ELEMENT_NAME,
                 "js_url": js_url,
+                # The panel owns viewport sizing and safe-area padding.
+                "handle_safe_area": True,
             },
             "slug": slug,
             "js_rev": PANEL_JS_REV,
